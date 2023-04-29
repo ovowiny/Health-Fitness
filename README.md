@@ -1,1 +1,2 @@
 # health-fitness
+High-tech manufacturer of health-focused products for women firm have the potential to become a larger player in the global smart device market. Analyzing smart device fitness data could help unlock new growth opportunities for the company. Focusing on one of their products and analyze smart device data to gain insight into how consumers are using their smart devices. The insights discover will then help guide marketing strategy for the company.
