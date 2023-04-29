@@ -1,0 +1,441 @@
+---
+title: "Bellabet Project"
+author: "Ogheneovo"
+date: "2023-04-21"
+output: html_document
+---
+### Loading libraries
+```{r}
+library("tidyverse")
+library("skimr")
+library("janitor")
+library("dplyr")
+library("ggplot2")
+library("ggpubr")
+library(ggcorrplot)
+```
+
+### Loading data (csv file) into r 
+```{r}
+daily_activity <- read_csv("Fitabase Data 4.12.16-5.12.16/dailyActivity_merged.csv")
+heartrate <- read_csv("Fitabase Data 4.12.16-5.12.16/heartrate_seconds_merged.csv")
+sleepday <- read_csv("Fitabase Data 4.12.16-5.12.16/sleepDay_merged.csv")
+weightlog_info <- read_csv("Fitabase Data 4.12.16-5.12.16/weightLogInfo_merged.csv")
+```
+
+### Viewing and Cleaning Data
+
+```{r}
+head(daily_activity)
+head(heartrate)
+head(sleepday)
+head(weightlog_info)
+```
+
+### Getting the column names
+```{r}
+colnames(daily_activity)
+colnames(heartrate)
+colnames(sleepday)
+colnames(weightlog_info)
+```
+
+### Checking for the number of columns, rows and datatype()
+```{r}
+glimpse(daily_activity)
+glimpse(heartrate)
+glimpse(sleepday)
+glimpse(weightlog_info)
+```
+
+### Check for missing values and duplicates 
+```{r}
+print ("Count of missing variables - ")
+sum(is.na(daily_activity))
+print(" Count of Duplicate values - ")
+sum(duplicated(daily_activity))
+```
+
+```{r}
+print ("Count of missing variables - ")
+sum(is.na(heartrate))
+print(" Count of Duplicate values - ")
+sum(duplicated(heartrate))
+```
+
+```{r}
+print ("Count of missing variables - ")
+sum(is.na(sleepday))
+print(" Count of Duplicate values - ")
+sum(duplicated(sleepday))
+```
+
+### Removing duplicate rows from the sleepday dataset
+```{r}
+sleepday <- sleepday %>% distinct()
+print ("Count of missing variables - ")
+sum(is.na(sleepday))
+print(" Count of Duplicate values - ")
+sum(duplicated(sleepday))
+```
+
+```{r}
+print ("Count of missing variables - ")
+sum(is.na(weightlog_info))
+print(" Count of Duplicate values - ")
+sum(duplicated(weightlog_info))
+```
+### Check to confirm rows with NA values and decide if we remove them or create a new df
+```{r}
+colSums(is.na(weightlog_info))
+```
+
+***The fat column contains 65 NA values out of 67 entries. We will need to remove the fat column as it's not useful to our analysis.***
+
+### Removing the NA column from our weightlog_info dataset
+```{r}
+weightlog_info <- weightlog_info[,-5]
+colSums(is.na(weightlog_info))
+```
+
+## Processing Data
+
+### Seperating columns having data & time for the different dataset so as to get unifomity of date
+```{r}
+heartrate <- separate(heartrate, Time, into = c('Date', 'Time'), sep = ' ')
+heartrate <- heartrate %>% select(-Time)
+```
+
+```{r}
+sleepday <- separate(sleepday, SleepDay, into = c('Date', 'Time'), sep = ' ')
+sleepday <- sleepday %>% select(-Time)
+```
+
+```{r}
+weightlog_info <- separate(weightlog_info, Date, into = c('Date', 'Time'), sep = ' ')
+weightlog_info <- weightlog_info %>% select(-Time)
+```
+
+### Renaming the ActivityDate column from daily_activity dataset so as to harmonize the names
+```{r}
+daily_activity <- daily_activity %>% rename(Date = ActivityDate)
+```
+
+### Checking for columns names
+```{r}
+colnames(daily_activity)
+colnames(heartrate)
+colnames(sleepday)
+colnames(weightlog_info)
+```
+
+### Checking the datatype if they are correct
+
+```{r}
+str(daily_activity)
+str(heartrate)
+str(sleepday)
+str(weightlog_info)
+```
+
+### Changing the Date columns from character to Date
+
+```{r}
+daily_activity <- mutate(daily_activity, Date = as.Date(Date, format = "%m/%d/%Y"))
+heartrate <- mutate(heartrate, Date = as.Date(Date, format = "%m/%d/%Y"))
+sleepday <- mutate(sleepday, Date = as.Date(Date, format = "%m/%d/%Y"))
+weightlog_info <- mutate(weightlog_info, Date = as.Date(Date, format = "%m/%d/%Y"))
+```
+
+### Changing the Id column from numeric to character
+```{r}
+daily_activity$Id <- as.character(daily_activity$Id)
+heartrate$Id <- as.character(heartrate$Id)
+sleepday$Id <- as.character(sleepday$Id)
+weightlog_info$Id <- as.character(weightlog_info$Id)
+```
+
+### Checking if the change is effected
+```{r}
+class(daily_activity$Date)
+class(heartrate$Date)
+class(sleepday$Date)
+class(weightlog_info$Date)
+```
+
+### Create the average activity covered by each individual within the timeframe
+```{r}
+average_activity <- daily_activity %>% 
+                      group_by(Id) %>% 
+                      summarise(Avg_distance = mean(TotalDistance),Avg_steps = mean(TotalSteps),
+                      Avg_calories = mean(Calories))
+head(average_activity)
+unique(average_activity$Id)
+```
+
+### Visualize persons that covered the most distance and those with the least distance within the period
+
+```{r}
+top_dist_users <- average_activity %>%
+       arrange(desc(Avg_distance)) %>% 
+       slice(1:10) %>%
+       ggplot(., aes(x = Id, y=Avg_distance)) + 
+       geom_bar(stat="identity", fill="deepskyblue3") + 
+       ggtitle('Top 10 Users with Highest Distance Covered')
+top_dist_users + coord_flip()
+```
+
+```{r}
+least_dist_users <- average_activity %>%
+       arrange(Avg_distance) %>% 
+       slice(1:10) %>%
+       ggplot(., aes(x = Id, y=Avg_distance)) + 
+       geom_bar(stat="identity", fill="deepskyblue3") + 
+       ggtitle('Top 10 Users with least Distance Covered')
+least_dist_users + coord_flip()
+```
+
+### Average Calories users generated within the period
+```{r}
+avg_calories <- average_activity %>%
+       arrange(desc(Avg_calories)) %>% 
+       slice(1:10) %>%
+       ggplot(., aes(x = Id, y=Avg_calories)) + 
+       geom_bar(stat="identity", fill="deepskyblue3") + 
+       ggtitle('Users with Highest Calories Expended')
+avg_calories + coord_flip()
+```
+
+*Top IDs burns an average between 2500 and 3500 calories on a daily basis*
+
+### Average steps covered by users within the period
+```{r}
+avg_steps <- average_activity %>%
+       arrange(desc(Avg_steps)) %>% 
+       slice(1:10) %>%
+       ggplot(., aes(x = Id, y=Avg_steps)) + 
+       geom_bar(stat="identity", fill="deepskyblue3") + 
+       ggtitle('Users with Most Steps Covered')
+avg_steps + coord_flip()
+```
+
+***For users with most steps, a minimal average of 9000 steps is taken on a daily basis***
+
+### Understanding daily steps, distance covered and calories burnt within the period
+```{r}
+daily_activities <- daily_activity %>% 
+                      group_by(Date) %>% 
+                      summarise(daily_distance = mean(TotalDistance), daily_steps = mean(TotalSteps), 
+                      daily_calories = mean(Calories))
+head(daily_activities)
+```
+
+### Daily distance covered
+```{r}
+daily_dist_covered <- ggplot(daily_activities, aes(x=Date, y=daily_distance,)) + 
+  geom_line(size = 1.4)+
+  ggtitle("Daily Distance Covered")+
+  xlab("Date")+
+  scale_x_date(date_labels="%b %d", date_breaks = "4 day")
+  ylim(0,10)
+daily_dist_covered
+```
+
+### daily steps covered
+```{r}
+daily_steps_covered <- ggplot(daily_activities, aes(x=Date, y=daily_steps,)) + 
+  geom_line(size = 1.4)+
+  ggtitle("Daily Steps Covered")+
+  xlab("Date")+
+  scale_x_date(date_labels="%b %d", date_breaks = "4 day")
+  ylim(5000,8500)
+daily_steps_covered
+```
+
+### Daily calories burnt
+```{r}
+daily_calories <- ggplot(daily_activities, aes(x=Date, y=daily_calories,)) + 
+  geom_line(size = 1.4)+
+  ggtitle("Daily Calories Expended")+
+  xlab("Date")+
+  scale_x_date(date_labels="%b %d", date_breaks = "4 day")+
+  ylim(2100,2500)
+daily_calories
+```
+
+
+```{r}
+steps_calories <- daily_activities %>% 
+  ggplot(aes(x = daily_steps, y = daily_calories, color = daily_calories)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "gray50", se = FALSE, size = 1) +
+  ggtitle("Daily Steps Vs Daily Calories Burnt") +
+  xlab("Daily Steps") +
+  ylab("Daily Calories") +
+  scale_color_gradient(low = "red", high = "green", limits = c(6000, 9000)) +
+  guides(color = guide_colorbar(title = "Daily_Calories")) +
+  xlim(6000, 9000)+
+  ylim(2100,2500)+
+  theme_light() +
+  theme(legend.title = element_text(size = 12, face = "bold")) + 
+  theme(plot.caption = element_text(hjust = 0, margin = margin(t = 10)))
+steps_calories
+```
+
+***The above charts reveals there exist a relationship between steps taken and calories expended on a daily basis.***
+
+### Understaning the weight and BMI of different IDs and classifying them into categories to know number of persons under each category.
+```{r}
+weight_info <- weightlog_info %>% 
+                      group_by(Id) %>% 
+                      summarise(Avg_weight = mean(WeightKg),Avg_BMI = mean(BMI))
+head(weight_info)
+```
+
+
+### Adding a new column to determine IDs that are underweight, healthy, overweight and obese
+```{r}
+weight_info$Weight_status <- with(weight_info, ifelse(Avg_BMI > 30.0, 'obese',
+                         ifelse(Avg_BMI > 25, 'overweight', 
+                         ifelse(Avg_BMI > 18, 'healthy', 'underweight'))))
+head(weight_info)
+```
+
+### Average weight Vs BMI to show the relationship
+```{r}
+Weight_BMI <- ggplot(data = weight_info) + geom_smooth(mapping = aes(x=Avg_weight, y=Avg_BMI)) +
+  geom_point(mapping = aes(x=Avg_weight, y=Avg_BMI)) +
+  labs(title = "Chart of Average weight Vs BMI", x = "Average weight (Kg)", y = "Average BMI")
+Weight_BMI
+```
+
+
+### Visualising to Know different weight status of the IDs
+```{r}
+weight_info %>% 
+  pull(Weight_status) %>% 
+  fct_count() %>% 
+  rename(Weight_status = f, count = n) %>% 
+  ggdonutchart("count", label = "Weight_status", fill = "Weight_status", color = "white",
+               palette = c("#00AFBB", "#E7B800", "#FC4E07"))
+```
+
+***The data reveals that 50% of the users are overweight while 35% are healthy and the other 15% are obese using their BMI status.***
+
+### Determining relationship between sleep and activities
+```{r}
+activity_df <- daily_activity%>%
+                  select(Id, Date, TotalSteps, VeryActiveMinutes, Calories)
+colnames(activity_df)
+colnames(sleepday)
+```
+
+
+### Merging two dataframes usig common columns
+```{r}
+activity_sleep <- merge(activity_df, sleepday, by = c("Id", "Date"))
+head(activity_sleep)
+```
+### Adding a new column to cater for non sleeping time while in bed
+```{r}
+activity_sleep <- activity_sleep %>%
+           mutate(NonSleepTimeInBed = TotalTimeInBed - TotalMinutesAsleep)
+head(activity_sleep)
+```
+
+### Use correlation to check if there is any relationship
+```{r}
+corr_activity_sleep <- dplyr::select(activity_sleep,-c("Id","Date"))
+corr <- round(cor(corr_activity_sleep),3)
+ggcorrplot(corr, hc.order = TRUE, type = "lower", lab = TRUE)
+```
+
+***The correlation chart buttresses further the relationship between steps taken and calories expended by users on a day to day basics.***
+
+***Also, people with active minutes has a strong correlation with calories burn.***
+
+***There is no correlation between total minutes asleep and calories burn by users.***
+
+### Checking for ActiveMinutes and Calories Burnt
+```{r}
+ggplot(data = activity_sleep) + geom_smooth(mapping = aes(x=VeryActiveMinutes, y=Calories)) +
+  geom_point(mapping = aes(x=VeryActiveMinutes, y=Calories, color = VeryActiveMinutes)) +
+  labs(title = "Calories Vs Very Active Minutes", x = "Very active minutes", y = "Calories")
+```
+
+***It reveals further that people with more active time burn more calories than than those with minimal time.***
+
+### Checking for relationsship NonSleepTimeInBed and Calories
+```{r}
+ggplot(data = activity_sleep) + geom_smooth(mapping = aes(x=NonSleepTimeInBed, y=Calories)) +
+  geom_point(mapping = aes(x=NonSleepTimeInBed, y=Calories), color = "green") +
+  labs(title = "Calories Vs Non_sleep time in bed", x = "Non_sleep time in bed", y = "Calories")
+```
+
+### Merging the heartrate df to the activity_sleep data to know if any relationship exist amongst the data.
+```{r}
+heartrate <- heartrate %>%
+            group_by(Id, Date) %>% 
+                      summarise(daily_heartrate = mean(Value))
+head(heartrate) 
+
+activity_sleep_heartrate <- merge(activity_sleep, heartrate, by = c("Id", "Date"))
+head(activity_sleep_heartrate)
+```
+
+
+### Checking the correlation
+```{r}
+corr_activity_sleep_heartrate <- dplyr::select(activity_sleep_heartrate,-c("Id","Date"))
+corr <- round(cor(corr_activity_sleep_heartrate),3)
+ggcorrplot(corr, hc.order = TRUE, type = "lower", lab = TRUE)
+```
+
+***The daily heartrate has no correlation with active minutes & total steps meanwhile shows a -ve correlation for total time in bed, minutes asleep & non sleep time in bed***
+
+### Relationship between Total Minutes Asleep & daily heartrate
+```{r}
+ggplot(data = activity_sleep_heartrate) + geom_smooth(mapping = aes(x=TotalMinutesAsleep, y=daily_heartrate)) +
+  geom_point(mapping = aes(x=TotalMinutesAsleep, y=daily_heartrate), color = "darkgreen") +
+  labs(title = "Daily Heartrate Vs Total Minutes Asleep", x = "Total Minutes Asleep", y = "Daily Heartrate")
+```
+
+***The chart shows that despite the number of time spent asleep on a daily basis, has no impact on the heart beat rate.***
+
+### Relationship between Total Minutes Asleep and Daily Heartrate
+```{r}
+ggplot(data = activity_sleep_heartrate) + geom_smooth(mapping = aes(x= NonSleepTimeInBed, y=daily_heartrate)) +
+  geom_point(mapping = aes(x=NonSleepTimeInBed, y=daily_heartrate), color = "darkgreen") +
+  labs(title = "Daily Heartrate Vs Non Sleep Time In Bed", x = "Non Sleep Time In Bed", y = "Daily Heartrate")
+```
+
+***No clear relationship existing between non sleeping time in bed and daily heartrate.***
+
+## Key Findings
+
+* The average calories expended on a daily basis  ranges between 2250 - 2400.
+
+* 50% of customers using the product are overweight while 35% are healthy & the remaining 15% are obese using their BMI score.
+
+* The more steps covered per day is directly proportional to calories expended which is reflective of users that are having more active hours.
+
+* Subscribers with more active minutes burns more calories.
+
+* Users recording more active minutes took more steps on a daily basis and expend more calories than those with more none active minutes.
+
+* There is no positive correlation between daily heart rate & the following parameters; Total time in bed, Total minutes asleep & Non sleep time in bed.
+
+## Recommendatons
+
+* The data set available are limited to get a more comprehensive analysis and the need to gather more data set for a longer period of time is necessary.
+
+* Customers can get a monthly report of their calories, health status using BMI or weight & other vitals as email to show accountability & progress they make. Perks like this can make Bella bet stand out.
+
+* Create discount for users that introduce a new customer.
+
+* Introduce products/activities that will target users that are overweight to burn more calories & create personalized services since most users are in this categories.
+
+* Create more awareness across digital platforms & also work with health centers to have access to new mothers that will need the product.
+
+* Quarterly reports should be made available to the public on media spaces for general awareness & benefits of the product.
+
